@@ -4,6 +4,12 @@ from sql_queries import copy_table_queries, insert_table_queries
 
 
 def load_staging_tables(cur, conn):
+    """
+    Loads events and songs data from S3 to Redshift (staging tables)
+    :param cur: psycopg2 cursor
+    :param conn: psycopg2 connection
+    :return: None
+    """
     print('Loading staging tables...')
     for query in copy_table_queries:
         cur.execute(query)
@@ -12,13 +18,29 @@ def load_staging_tables(cur, conn):
 
 
 def insert_tables(cur, conn):
+    """
+    Extracts data from the Redshift staging tables, transforms and loads it
+    into other Redshift tables to be queried by data analysts.
+    :param cur: psycopg2 cursor
+    :param conn: psycopg2 connection
+    :return: None
+    """
     print('Inserting data into OLAP tables')
     for query in insert_table_queries:
+        print(query)
+
         cur.execute(query)
         conn.commit()
     print('DONE!')
 
 def main():
+    """
+    Main method.
+    Loads events and songs data from S3 to Redshift (staging tables)
+    Then, it extracts data from the Redshift staging tables, transforms and loads it
+    into other Redshift tables to be queried by data analysts.
+    :return: None
+    """
     config = configparser.ConfigParser()
     config.read('dwh.cfg')
 
@@ -26,7 +48,7 @@ def main():
     cur = conn.cursor()
     
     load_staging_tables(cur, conn)
-    # insert_tables(cur, conn)
+    insert_tables(cur, conn)
 
     conn.close()
 
