@@ -26,11 +26,14 @@ def insert_tables(cur, conn):
     :return: None
     """
     print('Inserting data into OLAP tables')
+
     for query in insert_table_queries:
+        print('Running query:')
         print(query)
 
         cur.execute(query)
         conn.commit()
+
     print('DONE!')
 
 def main():

@@ -31,10 +31,10 @@ CREATE TABLE "stg_events" (
     "method" varchar(8) NOT NULL,
     "page" varchar(16) NOT NULL,
     "registration" numeric(16,1) NULL,
-    "sessionId" int NOT NULL,
+    "sessionId" int NULL,
     "song" varchar(2048) NULL,
     "status" int NULL,
-    "ts" bigint NOT NULL,
+    "ts" bigint NULL,
     "userAgent" varchar(2048) NULL,
     "userId" int NULL
 )
@@ -42,14 +42,14 @@ CREATE TABLE "stg_events" (
 
 staging_songs_table_create = ("""
 CREATE TABLE "stg_songs" (
-    "num_songs" int NOT NULL,
-    "artist_id" varchar(256) NOT NULL,
+    "num_songs" int NULL,
+    "artist_id" varchar(256) NULL,
     "artist_latitude" numeric(8,2) NULL,
     "artist_longitude" numeric(8,2) NULL,
-    "artist_location" varchar(2048) NOT NULL,
-    "artist_name" varchar(2048) NOT NULL,
-    "song_id" varchar(256) NOT NULL,
-    "title" varchar(2048) NOT NULL,
+    "artist_location" varchar(2048) NULL,
+    "artist_name" varchar(2048) NULL,
+    "song_id" varchar(256) NULL,
+    "title" varchar(2048) NULL,
     "duration" numeric(16, 8) NULL,
     "year" int NULL
 )  
@@ -57,7 +57,7 @@ CREATE TABLE "stg_songs" (
 
 songplay_table_create = ("""
 CREATE TABLE "songplays" (
-    "songplay_id" int IDENTITY(0,1) NOT NULL,
+    "songplay_id" int IDENTITY(0,1) NOT NULL PRIMARY KEY,
     "start_time" TIMESTAMP NOT NULL,
     "user_id" int NOT NULL,
     "level" varchar(16) NULL,
@@ -71,7 +71,7 @@ CREATE TABLE "songplays" (
 
 user_table_create = ("""
 CREATE TABLE "users" (
-    "user_id" int UNIQUE NOT NULL,
+    "user_id" int UNIQUE NOT NULL PRIMARY KEY,
     "first_name" varchar(2048) NULL,
     "last_name" varchar(2048) NULL,
     "gender" varchar(1) NULL,
@@ -81,7 +81,7 @@ CREATE TABLE "users" (
 
 song_table_create = ("""
 CREATE TABLE "songs" (
-    "song_id" varchar(256) UNIQUE NOT NULL,
+    "song_id" varchar(256) UNIQUE NOT NULL PRIMARY KEY,
     "artist_id" varchar(256) NOT NULL,
     "title" varchar(2048) NOT NULL,
     "duration" numeric(16, 8) NULL,
@@ -91,7 +91,7 @@ CREATE TABLE "songs" (
 
 artist_table_create = ("""
 CREATE TABLE "artists" (
-    "artist_id" varchar(256) UNIQUE NOT NULL,
+    "artist_id" varchar(256) UNIQUE NOT NULL PRIMARY KEY,
     "name" varchar(2048) NOT NULL,
     "latitude" numeric(8,2) NULL,
     "longitude" numeric(8,2) NULL,
@@ -101,7 +101,7 @@ CREATE TABLE "artists" (
 
 time_table_create = ("""
 CREATE TABLE "times" (
-    "start_time" timestamp UNIQUE NOT NULL,
+    "start_time" timestamp UNIQUE NOT NULL PRIMARY KEY,
     "hour" int NOT NULL,
     "day" int NOT NULL,
     "week" int NOT NULL,
@@ -114,14 +114,14 @@ CREATE TABLE "times" (
 # STAGING TABLES
 
 staging_events_copy = ("""
-    copy stg_events from {} 
+    copy stg_events from  {} 
     iam_role {}
     region 'us-west-2'
     FORMAT AS JSON {};
 """).format(config['S3']['LOG_DATA'], config['IAM_ROLE']['ARN'], config['S3']['LOG_JSONPATH'])
 
 staging_songs_copy = ("""
-    copy stg_songs from {} 
+    copy stg_songs FROM  {} 
     iam_role {}
     region 'us-west-2'
     COMPUPDATE OFF STATUPDATE OFF
@@ -131,66 +131,68 @@ staging_songs_copy = ("""
 # FINAL TABLES
 
 songplay_table_insert = ("""
-    insert into songplays (start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
-    (select  
-        TIMESTAMP 'epoch' + ts/1000 *INTERVAL '1 second' as start_time,
-        userId as user_id,
+    INSERT INTO songplays (start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
+    (SELECT  
+        TIMESTAMP 'epoch' + ts/1000 *INTERVAL '1 second' AS start_time,
+        userId AS user_id,
         level,
         s.song_id,
         s.artist_id,
-        sessionId as session_id,
+        sessionId AS session_id,
         location,
-        userAgent as user_agent
-     from stg_events ev
-     join stg_songs s on ev.song=s.title
+        userAgent AS user_agent
+     FROM  stg_events ev     
+     JOIN  stg_songs s ON (ev.song=s.title and ev.artist=s.artist_name)
+     WHERE  ev.page='NextSong' 
     );     
 """)
 
 user_table_insert = ("""
-    insert into users (user_id, first_name, last_name, gender, level)
-    (select distinct 
-        userId as user_id,
-        firstName as first_name,
-        lastName as last_name,
+    INSERT INTO users (user_id, first_name, last_name, gender, level)
+    (SELECT DISTINCT  
+        userId AS user_id,
+        firstName AS first_name,
+        lastName AS last_name,
         gender,
         level
-     from stg_events
-     where userId is not null);
+     FROM stg_events
+     WHERE page='NextSong'  
+        and userId is not null);
 """)
 
 song_table_insert = ("""
-    insert into songs (song_id, artist_id, title, duration, year)
-    (select distinct 
+    INSERT INTO songs (song_id, artist_id, title, duration, year)
+    (SELECT DISTINCT  
         song_id,
         artist_id,
         title,
         duration,
         year
-     from stg_songs);
+     FROM  stg_songs);
 """)
 
 artist_table_insert = ("""
-    insert into artists (artist_id, name, longitude, latitude, location)
-    (select distinct 
+    INSERT INTO artists (artist_id, name, longitude, latitude, location)
+    (SELECT DISTINCT  
         artist_id,
-        artist_name as name,
-        artist_longitude as longitude,
-        artist_latitude as latitude,
-        artist_location as location
-     from stg_songs);
+        artist_name AS name,
+        artist_longitude AS longitude,
+        artist_latitude AS latitude,
+        artist_location AS location
+     FROM  stg_songs);
 """)
 
 time_table_insert = ("""
-    insert into times (start_time, hour, day, week, month, year, weekday)
-    (select distinct
+    INSERT INTO times (start_time, hour, day, week, month, year, weekday)
+    (SELECT DISTINCT 
         start_time,
-        extract(hour from start_time) as hour,
-        extract(day from start_time) as day,
-        extract(week from start_time) as week,
-        extract(month from start_time) as month,
-        extract(year from start_time) as year,
-        extract(weekday from start_time) as weekday
-    from songplays)
+        EXTRACT(hour FROM  start_time) AS hour,
+        EXTRACT(day FROM  start_time) AS day,
+        EXTRACT(week FROM  start_time) AS week,
+        EXTRACT(month FROM  start_time) AS month,
+        EXTRACT(year FROM  start_time) AS year,
+        EXTRACT(weekday FROM  start_time) AS weekday
+    FROM  songplays)
 """)
 
 # QUERY LISTS
