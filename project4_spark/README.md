@@ -1,14 +1,6 @@
 # Author
 Edgar Tanaka
 
-# Pre-requirements
-This project was implemented and tested on:
-- python 3.6.10
-- pyspark 3.0.0 
-- conda 4.8.3
-
-You can find instructions on how to install pyspark in your computer here: https://medium.com/tinghaochen/how-to-install-pyspark-locally-94501eefe421
-
 # Summary
 This is the 4th project of the Udacity Data Engineering Nanodegree.
 In this project, I built an ETL that reads data from S3 and writes data back to S3.
@@ -130,8 +122,13 @@ the song played, the artist who performed the song and the date/time when the so
 - dl.cfg: contains your AWS credentials
 - README.md: provides discussion on your process and decisions
 
- # How to run 
-First, name sure you have all the pre-requirements installed and configured.
+# How to run locally
+First, name sure you have all the pre-requirements installed and configured:
+- conda 4.8.3
+- python 3.6.10
+- pyspark 3.0.0 
+
+You can find instructions on how to install pyspark in your computer here: https://medium.com/tinghaochen/how-to-install-pyspark-locally-94501eefe421
 
 Then, unzip the data files: 
 ```
@@ -150,3 +147,23 @@ python etl.py
 
 The output datasets will be created in the data directory.
 
+# How to run on AWS ERM
+- first upload the unzipped data to a bucket of yours in S3
+- change these lines in the etl.py script to point to your bucket 
+```
+input_data = "s3a://udacity-de-edgar/data/"
+output_data = "s3a://udacity-de-edgar/data/"
+```
+- copy dl.cfg.empty and rename it to `dl.cfg`
+- add your key ID and access key to the `dl.cfg` file
+- create a key pair if you do not have it yet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair)
+- launch an EMR cluster via AWS console
+    - for applications, use "Spark"
+    - set your EC2 key pair
+    - leave default settings for the other fields
+- once your EMR is in status "Waiting", ssh into it
+- copy the `etl.py` and `dl.cfg` files to 
+- run this command
+```
+submit-spark etl.py
+```
