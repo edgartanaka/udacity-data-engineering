@@ -2,3 +2,6 @@ venv
 dwh.cfg
 __pycache__
 .idea
+data
+dl.cfg
+times.csv
