@@ -151,10 +151,10 @@ The output datasets will be created in the data directory.
 - first upload the unzipped data to a bucket of yours in S3
 - change these lines in the etl.py script to point to your bucket 
 ```
-input_data = "s3a://udacity-de-edgar/data/"
-output_data = "s3a://udacity-de-edgar/data/"
+S3_PATH = "s3a://udacity-de-edgar/data/"
+SONG_FILES_PATH_SUFFIX = 'song_data/*/*/*/*.json'
+LOG_FILES_PATH_SUFFIX = 'log_data/*.json'
 ```
-- copy dl.cfg.empty and rename it to `dl.cfg`
 - add your key ID and access key to the `dl.cfg` file
 - create a key pair if you do not have it yet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#prepare-key-pair)
 - launch an EMR cluster via AWS console

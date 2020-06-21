@@ -13,11 +13,17 @@ config = config['default']
 os.environ['AWS_ACCESS_KEY_ID'] = config['AWS_ACCESS_KEY_ID']
 os.environ['AWS_SECRET_ACCESS_KEY'] = config['AWS_SECRET_ACCESS_KEY']
 
+# input files
+S3_PATH = "s3a://udacity-de-edgar/data/"
 SONG_FILES_PATH_SUFFIX = 'song_data/*/*/*/*.json'
 LOG_FILES_PATH_SUFFIX = 'log_data/*.json'
 
 
 def create_spark_session():
+    """
+    Creates a spark session
+    :return: a spark session
+    """
     spark = SparkSession \
         .builder \
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:2.7.0") \
@@ -26,6 +32,16 @@ def create_spark_session():
 
 
 def process_songs(spark, input_data, output_data):
+    """
+    Reads the song dataset and creates the dimension song dataset.
+    The output dataset does not contain duplicated songs.
+    The output dataset is saved in S3, it is partitioned by year/artist_id, it is in Parquet format
+    and it overwrites the previous version of the dataset in S3 whenever this function is called.
+    :param spark: spark session
+    :param input_data: path to the input files
+    :param output_data: path to the output files
+    :return: None
+    """
     # read song data file
     df = spark.read.json(input_data + SONG_FILES_PATH_SUFFIX)
 
@@ -33,11 +49,23 @@ def process_songs(spark, input_data, output_data):
     songs_table = df.select('song_id', 'title', 'artist_id', 'year', 'duration').distinct()
 
     # write songs table to parquet files partitioned by year and artist
-    songs_table.write.partitionBy('year', 'artist_id').mode('overwrite').parquet(
-        output_data + 'out_songs/songs.parquet')
+    songs_table.write\
+        .partitionBy('year', 'artist_id')\
+        .mode('overwrite')\
+        .parquet(output_data + 'out_songs/songs.parquet')
 
 
 def process_artists(spark, input_data, output_data):
+    """
+    Reads the songs dataset and generates the artists dimension dataset.
+    The output dataset does not contain duplicated artists.
+    The output dataset is saved in S3, it is in Parquet format
+    and it overwrites the previous version of the dataset in S3 whenever this function is called.
+    :param spark: spark session
+    :param input_data: path to the input files
+    :param output_data: path to the output files
+    :return: None
+    """
     # read song data file
     df = spark.read.json(input_data + SONG_FILES_PATH_SUFFIX)
 
@@ -50,6 +78,16 @@ def process_artists(spark, input_data, output_data):
 
 
 def process_users(spark, input_data, output_data):
+    """
+    Reads the log dataset and generates the users dimension dataset.
+    The output dataset does not contain duplicated users.
+    The output dataset is saved in S3, it is in Parquet format
+    and it overwrites the previous version of the dataset in S3 whenever this function is called.
+    :param spark: spark session
+    :param input_data: path to the input files
+    :param output_data: path to the output files
+    :return: None
+    """
     # read log data file
     df = spark.read.json(input_data + LOG_FILES_PATH_SUFFIX)
 
@@ -61,6 +99,16 @@ def process_users(spark, input_data, output_data):
 
 
 def process_times(spark, input_data, output_data):
+    """
+    Reads the log dataset and generates the times dimension dataset.
+    The output dataset does not contain duplicated times.
+    The output dataset is saved in S3, it is partitioned by year/month, it is in Parquet format
+    and it overwrites the previous version of the dataset in S3 whenever this function is called.
+    :param spark: spark session
+    :param input_data: path to the input files
+    :param output_data: path to the output files
+    :return: None
+    """
     # read song data file
     df = spark.read.json(input_data + LOG_FILES_PATH_SUFFIX)
 
@@ -84,6 +132,16 @@ def process_times(spark, input_data, output_data):
 
 
 def process_songplays(spark, input_data, output_data):
+    """
+    Reads the log dataset and generates the songplays fact dataset.
+    Each record in the output dataset is an user event in the music streaming app.
+    The output dataset is saved in S3, it is partitioned by year/month, it is in Parquet format
+    and it overwrites the previous version of the dataset in S3 whenever this function is called.
+    :param spark: spark session
+    :param input_data: path to the input files
+    :param output_data: path to the output files
+    :return: None
+    """
     # read log data file
     log_df = spark.read.json(input_data + LOG_FILES_PATH_SUFFIX)
     song_df = spark.read.json(input_data + SONG_FILES_PATH_SUFFIX)
@@ -138,8 +196,8 @@ def process_log_data(spark, input_data, output_data):
 
 def main():
     spark = create_spark_session()
-    input_data = "s3a://udacity-de-edgar/data/"
-    output_data = "s3a://udacity-de-edgar/data/"
+    input_data = S3_PATH
+    output_data = S3_PATH
 
     process_song_data(spark, input_data, output_data)
     process_log_data(spark, input_data, output_data)
