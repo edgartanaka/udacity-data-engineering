@@ -91,9 +91,6 @@ def process_songplays(spark, input_data, output_data):
     # filter only song plays actions
     log_df = log_df.filter(col("page") == 'NextSong')
 
-    # extract columns from joined song and log datasets to create songplays table
-    # songplay_id, start_time, user_id, level, song_id, artist_id, session_id, location, user_agent
-
     # join with songs table
     df = log_df.join(song_df,
                      (song_df['title'] == log_df['song']) & (song_df['artist_name'] == log_df['artist']))
@@ -141,12 +138,10 @@ def process_log_data(spark, input_data, output_data):
 
 def main():
     spark = create_spark_session()
-    # input_data = "s3a://udacity-de-edgar/data/"
-    # output_data = "s3a://udacity-de-edgar/data/"
-    input_data = 'data/'
-    output_data = 'data/'
+    input_data = "s3a://udacity-de-edgar/data/"
+    output_data = "s3a://udacity-de-edgar/data/"
 
-    # process_song_data(spark, input_data, output_data)
+    process_song_data(spark, input_data, output_data)
     process_log_data(spark, input_data, output_data)
 
 
