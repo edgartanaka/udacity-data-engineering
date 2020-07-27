@@ -114,24 +114,6 @@ def stage_imdb_title_crew():
     load_csv(uri, table_id, schema, field_delimiter)
 
 
-def create_dataset(dataset_name):
-    dataset_id = "{}.{}".format(client.project, dataset_name)
-    dataset = bigquery.Dataset(dataset_id)
-    dataset.location = "US"
-
-    try:
-        # Send the dataset to the API for creation.
-        # Raises google.api_core.exceptions.Conflict if the Dataset already
-        # exists within the project.
-        dataset = client.create_dataset(dataset)  # Make an API request.
-        print("Created dataset {}.{}".format(client.project, dataset.dataset_id))
-    except Conflict:
-        print('Dataset already exists: {}'.format(dataset_id))
-
-
-def create_datasets():
-    create_dataset('imdb')
-
 
 def stage_imdb():
     stage_imdb_name_basics()
