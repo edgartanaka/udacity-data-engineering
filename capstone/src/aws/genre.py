@@ -26,7 +26,11 @@ def insert_movielens_genre(conn, cur):
 
 
 def insert_tmdb_genre(conn, cur):
-    pass
+    # select
+    #   (row_number() over (order by true))::int as n
+    # into tmdb.numbers
+    # from tmdb.movies
+    # limit 10;
 
 
 def insert_imdb_genre(conn, cur):

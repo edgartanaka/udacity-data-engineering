@@ -288,3 +288,6 @@ with serdeproperties (
 ) 
 location 's3://udacity-de-tmdb/movies/movies/'
 
+# Lessons learned
+- redshift has bad support for flattening
+- redshift has bad support for json (very limited)
