@@ -19,6 +19,7 @@ job_config = bigquery.QueryJobConfig(destination=table_id, write_disposition='WR
 sql = """
 SELECT
   imdb.tconst,
+  imdb.titleType as movie_type,
   imdb.primaryTitle AS primary_title,
   imdb.originalTitle AS original_title,
   imdb.startYear AS start_year,
