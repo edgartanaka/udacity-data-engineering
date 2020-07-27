@@ -27,6 +27,7 @@ def create_dataset(dataset_name):
 
 
 def main():
+    create_dataset('awards')  # staging for IMDB data
     create_dataset('imdb')  # staging for IMDB data
     create_dataset('ml')  # staging for movielens data
     create_dataset('tmdb')  # staging for TMDB data

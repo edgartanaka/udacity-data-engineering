@@ -21,6 +21,15 @@ The database should allow for the following questions to be answered
 # Data Exploration
 Notebooks
 
+## Datasets
+https://www.kaggle.com/unanimad/the-oscar-award
+https://www.kaggle.com/unanimad/golden-globe-awards
+https://www.kaggle.com/unanimad/bafta-awards
+https://www.kaggle.com/unanimad/screen-actors-guild-awards
+https://www.imdb.com/interfaces/
+https://grouplens.org/datasets/movielens/
+https://developers.themoviedb.org/3 (API)
+
 ## IMDB
 title.akas.tsv.gz - Contains the following information for titles:
 - titleId (string) - a tconst, an alphanumeric unique identifier of the title
@@ -128,6 +137,15 @@ name.basics.tsv.gz – Contains the following information for names:
 ```
 
 # Data Model
+## Overall
+- snake case for fields
+- no creation of internal ID
+- IMDB IDs are used as IDs (as it seems to be standard in the industry) 
+- IMDB database is the source of truth. If any consolidation was needed, IMDB always had higher priority.
+- If data from other datasets for enrichment lacked tconst, it was discarded.
+- flat tables 
+
+
 PICTURE HERE
 
 - Movie
@@ -205,12 +223,14 @@ limit 100
 # ETL
 ## Steps
 Staging steps
+- create_bq_datasets: drops and recreates the final schema for analytics
+
 - ml_stage.py: stages movielens data into redshift
 - imdb_stage.py: stages all the data from IMDB into redshift
 - tmdb_stage.py: stage TMDB data into redshift
-- create_analytics: drops and recreates the final schema for analytics
-- genre.py: load table `analytics.genre` with data from IMDB, TMDB and movielens
+
 - movie.py: loads data into `analytics.movie`
+- genre.py: load table `analytics.genre` with data from IMDB, TMDB and movielens
 - tag.py: loads data into `analytics.tag`
 
 Consolidation steps
@@ -219,7 +239,14 @@ Consolidation steps
 
 Validation steps
 
+## Movie
+Filtering/Cleaning
+- removed adult movies
+- removed anything but movies (only kept title where type was "movie", "tvMovie" or "short")
 
+## Genre
+Filtering/Cleaning
+- removed genre != '(no genres listed)'
 
 
 # Dataset sizes
