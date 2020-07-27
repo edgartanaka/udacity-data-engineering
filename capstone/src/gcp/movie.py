@@ -3,11 +3,18 @@ Creates analytics.movie Bigquery table
 """
 
 from google.cloud import bigquery
+from google.oauth2 import service_account
 
-client = bigquery.Client()
-table_id = "edgart-experiments.analytics.movie"
+key_path = "../../credentials/edgart-experiments-67ca4ddbda73.json"
 
-job_config = bigquery.QueryJobConfig(destination=table_id)
+credentials = service_account.Credentials.from_service_account_file(
+    key_path, scopes=["https://www.googleapis.com/auth/cloud-platform"],
+)
+
+client = bigquery.Client(credentials=credentials, project=credentials.project_id, )
+table_id = "{}.analytics.movie".format(credentials.project_id)
+
+job_config = bigquery.QueryJobConfig(destination=table_id, write_disposition='WRITE_TRUNCATE',)
 
 sql = """
 SELECT
