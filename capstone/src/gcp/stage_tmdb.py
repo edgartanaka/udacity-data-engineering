@@ -14,14 +14,7 @@ credentials = service_account.Credentials.from_service_account_file(
 
 client = bigquery.Client(credentials=credentials, project=credentials.project_id, )
 
-# from google.cloud import bigquery
-# client = bigquery.Client()
-# dataset_id = 'my_dataset'
-
-dataset_ref = client.dataset('tmdb')
-job_config = bigquery.LoadJobConfig()
-job_config.write_disposition = bigquery.WriteDisposition.WRITE_TRUNCATE
-job_config.schema = [
+TMDB_MOVIE_SCHEMA = [
     bigquery.SchemaField("adult", "BOOLEAN"),
     bigquery.SchemaField("backdrop_path", "STRING"),
     bigquery.SchemaField("belongs_to_collection",
@@ -81,23 +74,54 @@ job_config.schema = [
     bigquery.SchemaField("vote_average", "NUMERIC"),
     bigquery.SchemaField("vote_count", "INT64"),
 ]
-job_config.source_format = bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
-uri = "gs://udacity-de/tmdb/*.json"
 
-load_job = client.load_table_from_uri(
-    uri,
-    dataset_ref.table("movies"),
-    location="US",  # Location must match that of the destination dataset.
-    job_config=job_config,
-)  # API request
-print("Starting job {}".format(load_job.job_id))
 
-try:
-    load_job.result()  # Waits for table load to complete.
-    print("Job finished.")
-except BadRequest as e:
-    for e in load_job.errors:
-        print('ERROR: {}'.format(e['message']))
+def stage_tmdb():
+    dataset_ref = client.dataset('tmdb')
+    job_config = bigquery.LoadJobConfig()
+    job_config.write_disposition = bigquery.WriteDisposition.WRITE_TRUNCATE
+    job_config.schema = TMDB_MOVIE_SCHEMA
+    job_config.source_format = bigquery.SourceFormat.NEWLINE_DELIMITED_JSON
+    uri = "gs://udacity-de/tmdb/*.json"
 
-destination_table = client.get_table(dataset_ref.table("movies"))
-print("Loaded {} rows.".format(destination_table.num_rows))
+    load_job = client.load_table_from_uri(
+        uri,
+        dataset_ref.table("movies"),
+        location="US",  # Location must match that of the destination dataset.
+        job_config=job_config,
+    )  # API request
+    print("Starting job {}".format(load_job.job_id))
+
+    try:
+        load_job.result()  # Waits for table load to complete.
+        print("Job finished.")
+    except BadRequest as e:
+        for e in load_job.errors:
+            print('ERROR: {}'.format(e['message']))
+
+    destination_table = client.get_table(dataset_ref.table("movies"))
+    print("Loaded {} rows.".format(destination_table.num_rows))
+
+
+def create_dataset(dataset_name):
+    dataset_id = "{}.{}".format(client.project, dataset_name)
+    dataset = bigquery.Dataset(dataset_id)
+    dataset.location = "US"
+
+    try:
+        # Send the dataset to the API for creation.
+        # Raises google.api_core.exceptions.Conflict if the Dataset already
+        # exists within the project.
+        dataset = client.create_dataset(dataset)  # Make an API request.
+        print("Created dataset {}.{}".format(client.project, dataset.dataset_id))
+    except Conflict:
+        print('Dataset already exists: {}'.format(dataset_id))
+
+
+def main():
+    create_dataset('ml')
+    stage_tmdb()
+
+
+if __name__ == "__main__":
+    main()

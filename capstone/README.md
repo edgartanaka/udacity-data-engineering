@@ -226,11 +226,12 @@ Validation steps
 Sizes in rows
 ml-latest
 ```
- 14,862,529 genome-scores.csv
-       1129 genome-tags.csv
-     58,099 links.csv
-     58,099 movies.csv
- 27,753,445 ratings.csv
+ 15584449 ml-25m/genome-scores.csv
+    1129 ml-25m/genome-tags.csv
+   62424 ml-25m/links.csv
+   62424 ml-25m/movies.csv
+ 25000096 ml-25m/ratings.csv
+ 1093361 ml-25m/tags.csv
 ```
 
 IMDB
@@ -291,3 +292,17 @@ location 's3://udacity-de-tmdb/movies/movies/'
 # Lessons learned
 - redshift has bad support for flattening
 - redshift has bad support for json (very limited)
+
+Time to load TMDB json data into BQ:
+```
+$time python stage_json.py 
+/Users/edgart/.pyenv/versions/3.6.10/lib/python3.6/site-packages/pandas/compat/__init__.py:117: UserWarning: Could not import the lzma module. Your installed Python is incomplete. Attempting to use lzma compression will result in a RuntimeError.
+  warnings.warn(msg)
+Starting job 1b5af311-c363-4098-9a6a-c32041ba4dd5
+Job finished.
+Loaded 526631 rows.
+
+real	4m7.194s
+user	0m1.424s
+sys	0m0.278s
+```

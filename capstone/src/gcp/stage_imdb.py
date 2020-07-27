@@ -131,8 +131,6 @@ def create_dataset(dataset_name):
 
 def create_datasets():
     create_dataset('imdb')
-    create_dataset('tmdb')
-    create_dataset('ml')
 
 
 def stage_imdb():
@@ -142,13 +140,9 @@ def stage_imdb():
     stage_imdb_title_crew()
     stage_imdb_title_principals()
 
-def stage_ml():
-
-
 def main():
     create_datasets()
-    # stage_imdb()
-    stage_ml()
+    stage_imdb()
 
 if __name__ == "__main__":
     main()
