@@ -1,0 +1,2 @@
+class StageTmdbOperator():
+    pass
