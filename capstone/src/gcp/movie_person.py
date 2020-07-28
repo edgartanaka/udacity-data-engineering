@@ -20,15 +20,15 @@ sql = """
 SELECT  
   tp.tconst,
   tp.nconst,
-  t.primaryTitle as movie_primary_title,
-  n.primaryName as person_primary_name,
+  m.primary_title as movie_primary_title,
+  p.primary_name as person_primary_name,
   tp.ordering,
   tp.category,
   tp.job,
   tp.characters
 FROM `edgart-experiments.imdb.title_principals` tp
-JOIN `edgart-experiments.imdb.title_basics` t ON t.tconst=tp.tconst
-JOIN `edgart-experiments.imdb.name_basics` n ON n.nconst=tp.nconst
+JOIN `edgart-experiments.analytics.movie` m ON m.tconst=tp.tconst
+JOIN `edgart-experiments.analytics.person` p ON p.nconst=tp.nconst
 """
 
 # Start the query, passing in the extra configuration.
