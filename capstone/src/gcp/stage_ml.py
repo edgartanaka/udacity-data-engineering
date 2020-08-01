@@ -87,8 +87,6 @@ def stage_ml_ratings():
     load_csv(uri, table_id, schema)
 
 
-
-
 def main():
     stage_ml_links()
     stage_ml_movies()

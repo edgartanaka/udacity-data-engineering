@@ -123,7 +123,6 @@ def stage_imdb():
     stage_imdb_title_principals()
 
 def main():
-    create_datasets()
     stage_imdb()
 
 if __name__ == "__main__":

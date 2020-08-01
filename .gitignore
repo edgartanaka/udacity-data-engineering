@@ -1,3 +1,6 @@
+*.log
+credentials
+aws.cfg
 venv
 dwh.cfg
 __pycache__
@@ -5,3 +8,14 @@ __pycache__
 data
 dl.cfg
 times.csv
+project3_dwh/2018-11-03-events.json
+project3_dwh/2018-11-04-events.json
+project3_dwh/events-data.txt
+project3_dwh/log_json_path.json
+project3_dwh/sample_song.json
+project3_dwh/song-data.txt
+project3_dwh/TRABCEI128F424C983.json
+project4_spark/songplays_table.csv/._SUCCESS.crc
+project4_spark/songplays_table.csv/.part-00000-f5e928a7-5c3d-40c7-b3d7-875f925c47c3-c000.csv.crc
+project4_spark/songplays_table.csv/_SUCCESS
+project4_spark/songplays_table.csv/part-00000-f5e928a7-5c3d-40c7-b3d7-875f925c47c3-c000.csv

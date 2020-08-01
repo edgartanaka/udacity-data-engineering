@@ -1,3 +1,4 @@
 credentials
 capstone/src/aws.cfg
 .ipynb_checkpoints
+*.log
