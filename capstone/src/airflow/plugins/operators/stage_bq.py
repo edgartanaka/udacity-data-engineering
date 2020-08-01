@@ -14,6 +14,7 @@ class StageBigqueryOperator(BaseOperator):
                  field_delimiter=',',
                  null_marker='',
                  quote_character='"',
+                 source_format=bigquery.SourceFormat.CSV,
                  *args, **kwargs):
         super(StageBigqueryOperator, self).__init__(*args, **kwargs)
         self.storage_uri = storage_uri
@@ -22,6 +23,7 @@ class StageBigqueryOperator(BaseOperator):
         self.field_delimiter = field_delimiter
         self.null_marker = null_marker
         self.quote_character = quote_character
+        self.source_format = source_format
 
     def execute(self, context):
         key_path = Variable.get('service_account_path')
@@ -32,18 +34,27 @@ class StageBigqueryOperator(BaseOperator):
 
         print("************** Started STAGE BQ!!! *******************")
 
-        job_config = bigquery.LoadJobConfig(
-            schema=self.schema,
-            skip_leading_rows=1,
-            field_delimiter=self.field_delimiter,
-            source_format=bigquery.SourceFormat.CSV,
-            quote_character=self.quote_character,
-            null_marker=self.null_marker,
-            write_disposition='WRITE_TRUNCATE',
-        )
+        if self.source_format == bigquery.SourceFormat.CSV:
+            job_config = bigquery.LoadJobConfig(
+                schema=self.schema,
+                skip_leading_rows=1,
+                field_delimiter=self.field_delimiter,
+                source_format=self.source_format,
+                quote_character=self.quote_character,
+                null_marker=self.null_marker,
+                write_disposition='WRITE_TRUNCATE',
+            )
+        elif self.source_format == bigquery.SourceFormat.NEWLINE_DELIMITED_JSON:
+            job_config = bigquery.LoadJobConfig(
+                schema=self.schema,
+                source_format=self.source_format,
+                write_disposition='WRITE_TRUNCATE',
+            )
 
         load_job = client.load_table_from_uri(
-            self.storage_uri, self.table_id, job_config=job_config
+            source_uris=self.storage_uri,
+            destination=self.table_id,
+            job_config=job_config
         )
 
         try:
