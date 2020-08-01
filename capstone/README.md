@@ -15,15 +15,6 @@ This enrichment expands the insights that could be extracted by a data analyst.
 
 Adult movies and TV series are considered out of the scope of this project.
 
-### Datasets
-- [IMDB](https://www.imdb.com/interfaces/)
-- [MovieLens](https://grouplens.org/datasets/movielens/)
-- [TMDB](https://developers.themoviedb.org/3)
-- [The Oscars (Kaggle)](https://www.kaggle.com/unanimad/the-oscar-award)
-- [Golden Globe Awards (Kaggle)](https://www.kaggle.com/unanimad/golden-globe-awards)
-- [Bafta Awards (Kaggle)](https://www.kaggle.com/unanimad/bafta-awards)
-- [Screen Actors Guild Awards (Kaggle)](https://www.kaggle.com/unanimad/screen-actors-guild-awards)
-
 ### Use cases
 Here I have outlined some questions that could be answered by querying the Movie Analytics dataset:
 - What genres are the most common among the top 1000 movies with the highest profit?
@@ -32,35 +23,45 @@ Here I have outlined some questions that could be answered by querying the Movie
 - What genres have won the most Oscars in history?
 - What genres are the best rated?
 
-## Step 2: Expore and Assess the Data
-Notebooks
+## Step 2: Explore and Assess the Data
 
-# Dataset sizes
-Sizes in rows
-ml-latest
-```
- 15584449 ml-25m/genome-scores.csv
-    1129 ml-25m/genome-tags.csv
-   62424 ml-25m/links.csv
-   62424 ml-25m/movies.csv
- 25000096 ml-25m/ratings.csv
- 1093361 ml-25m/tags.csv
-```
+### The Datasets
+- [IMDB](https://www.imdb.com/interfaces/)
+- [MovieLens](https://grouplens.org/datasets/movielens/)
+- [TMDB](https://developers.themoviedb.org/3)
+- [The Oscars (Kaggle)](https://www.kaggle.com/unanimad/the-oscar-award)
+- [Golden Globe Awards (Kaggle)](https://www.kaggle.com/unanimad/golden-globe-awards)
+- [Bafta Awards (Kaggle)](https://www.kaggle.com/unanimad/bafta-awards)
+- [SAGA - Screen Actors Guild Awards (Kaggle)](https://www.kaggle.com/unanimad/screen-actors-guild-awards)
 
-IMDB
-```
- 10,218,303 name.basics.tsv
-  6,974,101 title.basics.tsv
-  6,974,101 title.crew.tsv
- 40,116,933 title.principals.tsv
-```
+Data can easily be dowloaded for IMDB, MovieLens and the Kaggle datasets. 
+Note that the Kaggle datasets are not official. They were scraped by someone and published on the Kaggle
+platform.
 
-TMDB
-526563 movies
+The TMDB though was trickier to get as it's offered as an API. I had to write a [python script](https://gist.github.com/edgartanaka/a1bc5a0d7bb843f19b62669cd9bb3f8e)
+to download all of the movies data. I have shared this [data on Kaggle](https://www.kaggle.com/edgartanaka1/tmdb-movies-and-series)
+so that anyone interested in movies data can make use of it. Each movie was downloaded from the API and saved as a
+JSON file. More than 500K files are within this generated dataset. 
 
-
-
-
+### Datasets in size and format
+| Dataset            | Table            | Rows count | Format |
+|--------------------|------------------|------------|--------|
+| IMDB               | name.basics      | 10,218,303 | TSV    |
+| IMDB               | title.basics     | 6,974,101  | TSV    |
+| IMDB               | title.crew       | 6,974,101  | TSV    |
+| IMDB               | title.principals | 40,116,933 | TSV    |
+| IMDB               | title.ratings    | 1,057,712  | TSV    |
+| MovieLens (ml-25m) | genome-scores    | 15,584,449 | CSV    |
+| MovieLens (ml-25m) | genome-tags      | 1,129      | CSV    |
+| MovieLens (ml-25m) | links            | 62,424     | CSV    |
+| MovieLens (ml-25m) | movies           | 62,424     | CSV    |
+| MovieLens (ml-25m) | ratings          | 25,000,096 | CSV    |
+| MovieLens (ml-25m) | tags             | 1,093,361  | CSV    |
+| TMDB               | movies           | 526,563    | JSON   |
+| Oscars             | oscars           | 10,396     | CSV   |
+| Golden Globe       | golden globe     | 7,992      | CSV   |
+| BAFTA              | bafta            | 4,177      | CSV   |
+| SAGA               | saga             | 5,760      | CSV   |
 
 ## TMDB
 ```
