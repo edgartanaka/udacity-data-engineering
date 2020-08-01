@@ -370,9 +370,10 @@ analytics_production_company = BigQueryOperator(
     dag=dag
 )
 
+award_table = 'analytics.award'
 analytics_award_oscar = BigQueryOperator(
     sql=SqlQueries.analytics_award_oscar_insert,
-    destination_dataset_table='analytics.award',
+    destination_dataset_table=award_table,
     write_disposition='WRITE_APPEND',
     create_disposition='CREATE_IF_NEEDED',
     use_legacy_sql=False,
@@ -382,8 +383,8 @@ analytics_award_oscar = BigQueryOperator(
 
 analytics_award_golden_globe = BigQueryOperator(
     sql=SqlQueries.analytics_award_golden_globe_insert,
-    destination_dataset_table='analytics.award',
-    write_disposition='WRITE_TRUNCATE',
+    destination_dataset_table=award_table,
+    write_disposition='WRITE_APPEND',
     create_disposition='CREATE_IF_NEEDED',
     use_legacy_sql=False,
     task_id='analytics_award_golden_globe',
@@ -392,8 +393,8 @@ analytics_award_golden_globe = BigQueryOperator(
 
 analytics_award_saga = BigQueryOperator(
     sql=SqlQueries.analytics_award_saga_insert,
-    destination_dataset_table='analytics.award',
-    write_disposition='WRITE_TRUNCATE',
+    destination_dataset_table=award_table,
+    write_disposition='WRITE_APPEND',
     create_disposition='CREATE_IF_NEEDED',
     use_legacy_sql=False,
     task_id='analytics_award_saga',
@@ -401,7 +402,7 @@ analytics_award_saga = BigQueryOperator(
 )
 
 drop_awards = BigQueryTableDeleteOperator(
-    deletion_dataset_table='analytics.award',
+    deletion_dataset_table=award_table,
     ignore_if_missing=True,
     task_id='deletion_dataset_table',
     dag=dag
@@ -444,10 +445,11 @@ start_operator >> stage_ml_genome_scores >> staging_complete
 
 # Create Analytics tables
 staging_complete >> [analytics_movie, analytics_person]
-analytics_movie >> [analytics_rating, analytics_tag, analytics_genre, analytics_production_company] >> analytics_complete
+analytics_movie >> [analytics_rating, analytics_tag, analytics_genre,
+                    analytics_production_company] >> analytics_complete
 [analytics_movie, analytics_person] >> analytics_movie_person
 analytics_movie_person >> drop_awards
-drop_awards >> [analytics_award_saga,analytics_award_oscar,analytics_award_golden_globe] >> analytics_complete
+drop_awards >> [analytics_award_saga, analytics_award_oscar, analytics_award_golden_globe] >> analytics_complete
 
 # analytics_complete >> validation_complete
 
