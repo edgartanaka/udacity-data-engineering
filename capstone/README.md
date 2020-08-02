@@ -39,6 +39,8 @@ Here I have outlined some questions that could be answered by querying the Movie
 - What genres have won the most Oscars in history?
 - What genres are the best rated?
 
+Check out some data analysis in this [jupyter notebook](notebooks/analytics_examples.ipynb)
+
 ## Step 2: Explore and Assess the Data
 
 ### The Datasets
@@ -189,7 +191,6 @@ The complete data dictionary is defined further down this section
 | ml_rating      | NUMERIC | Rating in MovieLens. Ranges from 0 to 5. |
 | ml_num_votes   | INTEGER | Number of votes in MovieLens             |
 
-
 #### Tag
 | Field name | Type   | Description                                                                                                                                                                          |
 |------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -197,40 +198,43 @@ The complete data dictionary is defined further down this section
 | tag        | STRING | User created tag. This is a wildly broad field and can indicate themes, important actors/actresses, characters, awards (not exhaustive list).                                        |
 | relevance  | FLOAT  | Relevance values are on a continuous 0-1 scale. A value of 1 indicates that a tag is strongly relevant to a movie and a value of 0 indicates that a tag has no relevance to a movie. |
 
+### Data samples
+If you want to check out some sample data from each of these tables, go to 
+[this jupyter notebook](notebooks/analytics_sample_data.ipynb)
 
 ## Step 4: Run ETL to Model the Data
 
 ![DAG Airflow](img/dag.png)
 
-### Steps
-Staging steps
-- create_bq_datasets: drops and recreates the final schema for analytics
+### Phases
+The ETL was broken down into 3 major phases:
+- stage: staging data from Google Cloud Storage into Bigquery. No transformation/cleaning/processing was done at this point.
+- analytics: build the Movie Analytics tables from the staged data. This is where all the consolidation/cleaning is done.
+- validation: some sanity checks on the Movie Analytics tables. 
 
-- ml_stage.py: stages movielens data into redshift
-- imdb_stage.py: stages all the data from IMDB into redshift
-- tmdb_stage.py: stage TMDB data into redshift
-
-- movie.py: loads data into `analytics.movie`
-- genre.py: load table `analytics.genre` with data from IMDB, TMDB and movielens
-- tag.py: loads data into `analytics.tag`
-
-Consolidation steps
-- consolidate genres: imdb, movielens, tmdb
-- consolidate movielens + imdb
-
-Validation steps
-
-## Movie
-Filtering/Cleaning
+### Filtering/Cleaning
 - removed adult movies
 - removed anything but movies (only kept title where type was "movie", "tvMovie" or "short")
-
-## Genre
-Filtering/Cleaning
-- removed genre != '(no genres listed)'
+- removed records where genre was `(no genres listed)`
+- removed duplicates in TMDB movies data (there were 62 duplicated records)
 
 ## The technologies chosen
-**TODO**
+Apache Airflow is a powerful open source tool for building complex data pipelines. It helps us
+manage DAGs with lots of dependencies and brings structure to the multiple steps in a data pipeline.
+Airflow also comes with pre-packaged operators to interface with Bigquery. Those were very much useful 
+in the ETL steps where input and output was Bigquery. Although Airflow also comes with a specific operator
+to load data from Storage into Bigquery, it did not have the flexibility (parameters) needed so I had 
+to write my own custom operator (`StageBigqueryOperator`).
+
+Bigquery can process data at a large scale. It can easily ingest data from various formats (in this project
+it was very easy to ingest CSV and JSON data). Bigquery was used to do all the heavy lifting in data processing
+in this project. It can handle billions of rows without us having to manage resources (like in AWS Redshift).
+Bigquery comes with easy to use interfaces to Google Datastudio (for data visualization) and also Jupyter notebook.
+You can check out some examples [here](notebooks/analytics_examples.ipynb). Bigquery can be used by data analysts
+for adhoc analysis so it is also a good place for Movie Analytics data to sit. 
+
+Google Cloud Storage is the storage solution in GCP (like S3 in AWS). It provides a CLI interface to upload
+large files. Once the data is in storage, it's easy to transport it into Bigquery while defining a schema.
 
 ## Thinking about other scenarios
 ### Scenario 1: If the data was increased by 100x.
@@ -306,7 +310,7 @@ Loaded 526631 rows.
 
 real	4m7.194s
 user	0m1.424s
-sys	0m0.278s
+sys	    0m0.278s
 ```
 
 ### Airflow: use LocalExecutor + Relational DB to develop locally
@@ -321,4 +325,6 @@ and I stopped having those weird crashing issues. Developing and testing got a l
 Here are some next steps to continue improving this dataset:
 - Enrich Movie Analytics even more with the BAFTA dataset. Currently it has some severe inconsistencies which are 
 a bit hard to deal with programmatically.
-- 
+- Add steps in DAG to collect data directly from IMDB, TMDB, MovieLens and Kaggle.
+- Add more sophisticated validations at the end of DAG.
+- Break down the DAG tasks into separate files: one for IMDB, one for TMDB, one for Kaggle, one for Movie Analytics etc.
