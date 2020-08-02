@@ -1,9 +1,9 @@
+from airflow.models import BaseOperator
+from airflow.models import Variable
+from airflow.utils.decorators import apply_defaults
 from google.cloud import bigquery
 from google.oauth2 import service_account
-from google.api_core.exceptions import Conflict, BadRequest
-from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
-from airflow.models import Variable
+
 
 class StageBigqueryOperator(BaseOperator):
     @apply_defaults
@@ -31,8 +31,6 @@ class StageBigqueryOperator(BaseOperator):
             key_path, scopes=["https://www.googleapis.com/auth/cloud-platform"],
         )
         client = bigquery.Client(credentials=credentials, project=credentials.project_id, )
-
-        print("************** Started STAGE BQ!!! *******************")
 
         if self.source_format == bigquery.SourceFormat.CSV:
             job_config = bigquery.LoadJobConfig(

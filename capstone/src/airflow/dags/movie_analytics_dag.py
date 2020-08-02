@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from operators.stage_bq import StageBigqueryOperator
@@ -6,6 +6,7 @@ from airflow.utils.dates import days_ago
 from google.cloud import bigquery
 from helpers import SqlQueries
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
+from airflow.contrib.operators.bigquery_check_operator import BigQueryValueCheckOperator, BigQueryCheckOperator
 from airflow.contrib.operators.bigquery_table_delete_operator import BigQueryTableDeleteOperator
 
 default_args = {
@@ -24,8 +25,9 @@ dag = DAG('movie_analytics_dag',
           description='Build Movie Analytics database',
           schedule_interval=None)
 
-start_operator = DummyOperator(task_id='start_dag', dag=dag)
-
+###########################
+# Stage IMDB
+###########################
 stage_imdb_name_basics = StageBigqueryOperator(
     storage_uri='gs://udacity-de/imdb/name.basics.tsv.gz',
     table_id='imdb.name_basics',
@@ -94,22 +96,9 @@ stage_imdb_title_principals = StageBigqueryOperator(
     task_id='stage_imdb_title_principals',
     dag=dag)
 
-stage_imdb_title_crew = StageBigqueryOperator(
-    storage_uri='gs://udacity-de/imdb/title.crew.tsv.gz',
-    table_id='imdb.title_crew',
-    schema=[
-        bigquery.SchemaField("tconst", "STRING"),
-        bigquery.SchemaField("directors", "STRING"),
-        bigquery.SchemaField("writers", "STRING"),
-    ],
-    field_delimiter='\t',
-    null_marker='\\N',
-    quote_character='^',
-    task_id='stage_imdb_title_crew',
-    dag=dag)
 
 ###########################
-# Movielens tasks
+# Stage Movielens
 ###########################
 stage_ml_genome_tags = StageBigqueryOperator(
     storage_uri='gs://udacity-de/ml-25m/genome-tags.csv',
@@ -256,19 +245,6 @@ stage_oscars = StageBigqueryOperator(
     task_id='stage_oscars',
     dag=dag)
 
-stage_bafta = StageBigqueryOperator(
-    storage_uri='gs://udacity-de/awards/bafta.csv',
-    table_id='awards.bafta',
-    schema=[
-        bigquery.SchemaField("year", "INT64"),
-        bigquery.SchemaField("category", "STRING"),
-        bigquery.SchemaField("nominee", "STRING"),
-        bigquery.SchemaField("workers", "STRING"),
-        bigquery.SchemaField("winner", "BOOLEAN"),
-    ],
-    task_id='stage_bafta',
-    dag=dag)
-
 stage_golden_globe = StageBigqueryOperator(
     storage_uri='gs://udacity-de/awards/goldenglobe.csv',
     table_id='awards.golden_globe',
@@ -298,7 +274,7 @@ stage_saga = StageBigqueryOperator(
     dag=dag)
 
 ###########################
-# Create Analytics tables
+# Create Movie Analytics tables
 ###########################
 analytics_movie = BigQueryOperator(
     sql=SqlQueries.analytics_movie_insert,
@@ -409,8 +385,62 @@ drop_awards = BigQueryTableDeleteOperator(
 )
 
 ###########################
+# Validation tasks
+###########################
+validate_non_empty_movie = BigQueryCheckOperator(
+    dag=dag,
+    task_id='validate_non_empty_movie',
+    sql=SqlQueries.validate_non_empty_movie,
+    use_legacy_sql=False)
+
+validate_non_empty_person = BigQueryCheckOperator(
+    dag=dag,
+    task_id='validate_non_empty_person',
+    sql=SqlQueries.validate_non_empty_person,
+    use_legacy_sql=False)
+
+validate_non_empty_movie_person = BigQueryCheckOperator(
+    dag=dag,
+    task_id='validate_non_empty_movie_person',
+    sql=SqlQueries.validate_non_empty_movie_person,
+    use_legacy_sql=False)
+
+validate_non_empty_genre = BigQueryCheckOperator(
+    dag=dag,
+    task_id='validate_non_empty_genre',
+    sql=SqlQueries.validate_non_empty_genre,
+    use_legacy_sql=False)
+
+validate_non_empty_tag = BigQueryCheckOperator(
+    dag=dag,
+    task_id='validate_non_empty_tag',
+    sql=SqlQueries.validate_non_empty_tag,
+    use_legacy_sql=False)
+
+validate_non_empty_rating = BigQueryCheckOperator(
+    dag=dag,
+    task_id='validate_non_empty_rating',
+    sql=SqlQueries.validate_non_empty_rating,
+    use_legacy_sql=False)
+
+validate_no_dups_movies = BigQueryValueCheckOperator(
+    dag=dag,
+    pass_value=0,
+    task_id='validate_no_dups_movies',
+    sql=SqlQueries.validate_no_dups_movies,
+    use_legacy_sql=False)
+
+validate_no_dups_person = BigQueryValueCheckOperator(
+    dag=dag,
+    pass_value=0,
+    task_id='validate_no_dups_person',
+    sql=SqlQueries.validate_no_dups_person,
+    use_legacy_sql=False)
+
+###########################
 # Key stages tasks
 ###########################
+start_operator = DummyOperator(task_id='start_dag', dag=dag)
 staging_complete = DummyOperator(task_id='staging_complete', dag=dag)
 analytics_complete = DummyOperator(task_id='analytics_complete', dag=dag)
 validation_complete = DummyOperator(task_id='analytics_complete', dag=dag)
@@ -422,7 +452,6 @@ end_operator = DummyOperator(task_id='finished_dag', dag=dag)
 
 # Stage all IMDB data
 start_operator >> stage_imdb_name_basics >> staging_complete
-start_operator >> stage_imdb_title_crew >> staging_complete
 start_operator >> stage_imdb_title_ratings >> staging_complete
 start_operator >> stage_imdb_title_principals >> staging_complete
 start_operator >> stage_imdb_title_basics >> staging_complete
@@ -433,7 +462,6 @@ start_operator >> stage_tmdb_movies >> staging_complete
 # Stage all Awards data
 start_operator >> stage_oscars >> staging_complete
 start_operator >> stage_saga >> staging_complete
-start_operator >> stage_bafta >> staging_complete
 start_operator >> stage_golden_globe >> staging_complete
 
 # Stage all Movielens data
@@ -443,7 +471,7 @@ start_operator >> stage_ml_ratings >> staging_complete
 start_operator >> stage_ml_genome_tags >> staging_complete
 start_operator >> stage_ml_genome_scores >> staging_complete
 
-# Create Analytics tables
+# Create Movie Analytics tables
 staging_complete >> [analytics_movie, analytics_person]
 analytics_movie >> [analytics_rating, analytics_tag, analytics_genre,
                     analytics_production_company] >> analytics_complete
@@ -451,6 +479,15 @@ analytics_movie >> [analytics_rating, analytics_tag, analytics_genre,
 analytics_movie_person >> drop_awards
 drop_awards >> [analytics_award_saga, analytics_award_oscar, analytics_award_golden_globe] >> analytics_complete
 
-# analytics_complete >> validation_complete
+# Validations
+analytics_complete >> [
+    validate_non_empty_person,
+    validate_non_empty_movie,
+    validate_non_empty_movie_person,
+    validate_non_empty_genre,
+    validate_non_empty_tag,
+    validate_non_empty_rating,
+    validate_no_dups_movies,
+    validate_no_dups_person
+] >> end_operator
 
-analytics_complete >> end_operator

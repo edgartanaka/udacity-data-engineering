@@ -1,6 +1,6 @@
 class SqlQueries:
     analytics_movie_insert = ("""
-        SELECT
+        SELECT DISTINCT
           imdb.tconst,
           imdb.titleType as movie_type,
           imdb.primaryTitle AS primary_title,
@@ -14,20 +14,14 @@ class SqlQueries:
           tmdb.overview,
           tmdb.popularity,
           tmdb.poster_path,
-          tmdb.production_companies,
-          tmdb.production_countries,
           tmdb.release_date,
           tmdb.revenue,
-          tmdb.runtime,
-          tmdb.spoken_languages,
           tmdb.status,
-          tmdb.tagline,
-          tmdb.vote_average,
-          tmdb.vote_count
+          tmdb.tagline
         FROM
-          `edgart-experiments.imdb.title_basics` imdb
+          `imdb.title_basics` imdb
         LEFT JOIN
-          `edgart-experiments.tmdb.movies` tmdb
+          `tmdb.movies` tmdb
         ON
           tmdb.imdb_id = imdb.tconst
         WHERE
@@ -45,7 +39,7 @@ class SqlQueries:
           CAST(deathYear AS INT64) as death_year,
           primaryProfession as primary_profession,
           knownForTitles as known_for_titles
-        FROM `edgart-experiments.imdb.name_basics`
+        FROM `imdb.name_basics`
     """)
 
     analytics_movie_person_insert = ("""
@@ -58,9 +52,9 @@ class SqlQueries:
           tp.category,
           tp.job,
           tp.characters
-        FROM `edgart-experiments.imdb.title_principals` tp
-        JOIN `edgart-experiments.analytics.movie` m ON m.tconst=tp.tconst
-        JOIN `edgart-experiments.analytics.person` p ON p.nconst=tp.nconst    
+        FROM `imdb.title_principals` tp
+        JOIN `analytics.movie` m ON m.tconst=tp.tconst
+        JOIN `analytics.person` p ON p.nconst=tp.nconst    
     """)
 
     analytics_genre_insert = ("""
@@ -68,7 +62,7 @@ class SqlQueries:
             SELECT 
               tconst, -- string
               genre
-            FROM `edgart-experiments.imdb.title_basics`,
+            FROM `imdb.title_basics`,
             UNNEST(split(lower(genres), ',')) as genre
         ),
         
@@ -76,16 +70,16 @@ class SqlQueries:
             SELECT 
             l.imdbId as tconst, -- imdbId is an integer
             genre
-            FROM `edgart-experiments.ml.movies` m,
+            FROM `ml.movies` m,
             UNNEST(split(lower(m.genres), '|')) as genre
-            JOIN `edgart-experiments.ml.links` l on l.movieId=m.movieId
+            JOIN `ml.links` l on l.movieId=m.movieId
             WHERE genre != '(no genres listed)'
         ),
         
         ml_genres_with_tconst AS (
             SELECT m.tconst, ml.genre
             FROM ml_genres ml 
-            JOIN `edgart-experiments.analytics.movie` m -- join only movies (ignore series and others)
+            JOIN `analytics.movie` m -- join only movies (ignore series and others)
             ON CAST(REPLACE(m.tconst, 'tt', '') AS INT64)=ml.tconst -- join based on integer
         ),
         all_genres_with_duplicates AS (
@@ -108,9 +102,9 @@ class SqlQueries:
             m.tconst,
             TRUNC(AVG(rating), 1) as rating,
             COUNT(1) as num_votes
-          FROM `edgart-experiments.ml.ratings` r
-          JOIN `edgart-experiments.ml.links` l ON l.movieId=r.movieId 
-          JOIN `edgart-experiments.analytics.movie` m ON CAST(REPLACE(m.tconst, 'tt', '') AS INT64)=l.imdbId
+          FROM `ml.ratings` r
+          JOIN `ml.links` l ON l.movieId=r.movieId 
+          JOIN `analytics.movie` m ON CAST(REPLACE(m.tconst, 'tt', '') AS INT64)=l.imdbId
           GROUP BY m.tconst
         )
         SELECT
@@ -121,9 +115,9 @@ class SqlQueries:
         tmdb.vote_count as tmdb_num_votes,
         ml.rating as ml_rating,
         ml.num_votes as ml_num_votes
-        FROM `edgart-experiments.analytics.movie` m
-        LEFT JOIN `edgart-experiments.imdb.title_ratings` imdb ON imdb.nconst=m.tconst
-        LEFT JOIN `edgart-experiments.tmdb.movies` tmdb ON tmdb.imdb_id=m.tconst
+        FROM `analytics.movie` m
+        LEFT JOIN `imdb.title_ratings` imdb ON imdb.nconst=m.tconst
+        LEFT JOIN `tmdb.movies` tmdb ON tmdb.imdb_id=m.tconst
         LEFT JOIN ml_rating ml ON ml.tconst=m.tconst
     """)
 
@@ -132,10 +126,10 @@ class SqlQueries:
           m.tconst,
           gt.tag,
           gs.relevance
-        FROM `edgart-experiments.ml.genome_scores` gs
-        JOIN `edgart-experiments.ml.genome_tags` gt ON gt.tagId=gs.tagId
-        JOIN `edgart-experiments.ml.links` l ON l.movieId=gs.movieId
-        JOIN `edgart-experiments.analytics.movie` m ON CAST(REPLACE(m.tconst, 'tt', '') AS INT64)=l.imdbId
+        FROM `ml.genome_scores` gs
+        JOIN `ml.genome_tags` gt ON gt.tagId=gs.tagId
+        JOIN `ml.links` l ON l.movieId=gs.movieId
+        JOIN `analytics.movie` m ON CAST(REPLACE(m.tconst, 'tt', '') AS INT64)=l.imdbId
     """)
 
     analytics_production_company_insert = ("""
@@ -143,31 +137,58 @@ class SqlQueries:
           tmdb.imdb_id as tconst, 
           pc.name as production_company_name, 
           pc.origin_country as production_company_country
-        FROM `edgart-experiments.tmdb.movies` tmdb,
+        FROM `tmdb.movies` tmdb,
         UNNEST(production_companies) as pc
-        JOIN `edgart-experiments.analytics.movie` m ON tmdb.imdb_id=m.tconst
+        JOIN `analytics.movie` m ON tmdb.imdb_id=m.tconst
         WHERE imdb_id is not null and imdb_id != ''    
     """)
 
     analytics_award_oscar_insert = ("""
-        SELECT  
-          'SAG Awards' as award_name,
-          SUBSTR(saga.year, 0, 4) as award_year,
-          saga.category as award_category,
-          saga.won as award_winner,  
-          saga.show as film,
-          saga.full_name as person_name,  
-          m.tconst as tconst, 
-          p.nconst as nconst
-        FROM `edgart-experiments.awards.saga` saga
-        JOIN `edgart-experiments.analytics.person` p ON LOWER(p.primary_name)=LOWER(saga.full_name)
-        JOIN `edgart-experiments.analytics.movie` m ON LOWER(saga.show)=LOWER(m.primary_title)
-        JOIN `edgart-experiments.analytics.movie_person` mp ON mp.nconst=p.nconst AND m.tconst=mp.tconst
-        WHERE 
-          LOWER(saga.category) NOT LIKE '%television%' AND LOWER(saga.category) NOT LIKE '%series%' -- remove TV series
-          AND saga.year IS NOT NULL    
+    WITH oscars_person AS (
+      SELECT  
+      o.year_ceremony as award_year,
+      o.category as award_category,
+      o.winner as award_winner,  
+      o.film as film,
+      o.name as person_name,  
+      m.tconst as tconst, 
+      p.nconst as nconst
+      FROM `awards.oscars` o
+      JOIN `analytics.person` p ON lower(p.primary_name)=lower(o.name)
+      JOIN `analytics.movie` m ON lower(o.film)=lower(m.primary_title) AND o.year_filme=CAST(start_year AS INT64)
+      JOIN `analytics.movie_person` mp ON mp.nconst=p.nconst AND m.tconst=mp.tconst
+    ),
+    oscars_movie AS (
+      SELECT  
+      o.year_ceremony as award_year,
+      o.category as award_category,
+      o.winner as award_winner,
+      o.film as film,
+      o.name as person_name,
+      m.tconst as tconst, 
+      cast(null as string) as nconst
+      FROM `awards.oscars` o
+      JOIN `analytics.movie` m ON lower(o.film)=lower(m.primary_title) AND o.year_filme=CAST(m.start_year AS INT64)
+    ),
+    all_oscars AS (
+      SELECT * FROM oscars_movie
+      UNION ALL
+      SELECT * FROM oscars_person
+      )
+      
+    -- removes duplicates while keeping non null values
+    SELECT 
+      'oscars' as award_name,
+      m.award_year,
+      m.award_category,
+      m.award_winner,
+      m.film,
+      m.person_name,
+      MAX(m.tconst) as tconst, -- keeps non null value
+      MAX(m.nconst) as nconst -- keeps non null value
+      FROM all_oscars m
+      GROUP BY 1,2,3,4,5,6
     """)
-
 
     analytics_award_golden_globe_insert = ("""
     WITH golden_globe_person AS (
@@ -179,10 +200,10 @@ class SqlQueries:
       gg.nominee as person_name,  
       m.tconst as tconst, 
       p.nconst as nconst
-      FROM `edgart-experiments.awards.golden_globe` gg
-      JOIN `edgart-experiments.analytics.person` p ON lower(p.primary_name)=lower(gg.nominee)
-      JOIN `edgart-experiments.analytics.movie` m ON lower(gg.film)=lower(m.primary_title) AND gg.year_film=CAST(start_year AS INT64)
-      JOIN `edgart-experiments.analytics.movie_person` mp ON mp.nconst=p.nconst AND m.tconst=mp.tconst
+      FROM `awards.golden_globe` gg
+      JOIN `analytics.person` p ON lower(p.primary_name)=lower(gg.nominee)
+      JOIN `analytics.movie` m ON lower(gg.film)=lower(m.primary_title) AND gg.year_film=CAST(start_year AS INT64)
+      JOIN `analytics.movie_person` mp ON mp.nconst=p.nconst AND m.tconst=mp.tconst
       WHERE gg.category NOT LIKE '%Television%' AND gg.category NOT LIKE '%Series%' -- remove TV series
     ),
     golden_globe_movie AS (
@@ -194,9 +215,9 @@ class SqlQueries:
       gg.nominee as person_name,  
       m.tconst as tconst, 
       p.nconst as nconst
-      FROM `edgart-experiments.awards.golden_globe` gg
-      JOIN `edgart-experiments.analytics.person` p ON lower(p.primary_name)=lower(gg.nominee)
-      JOIN `edgart-experiments.analytics.movie` m ON lower(gg.film)=lower(m.primary_title) AND gg.year_film=CAST(start_year AS INT64)
+      FROM `awards.golden_globe` gg
+      JOIN `analytics.person` p ON lower(p.primary_name)=lower(gg.nominee)
+      JOIN `analytics.movie` m ON lower(gg.film)=lower(m.primary_title) AND gg.year_film=CAST(start_year AS INT64)
       WHERE gg.category NOT LIKE '%Television%' AND gg.category NOT LIKE '%Series%' -- remove TV series
     ),
     all_golden_globe AS (
@@ -221,19 +242,37 @@ class SqlQueries:
 
     analytics_award_saga_insert = ("""
         SELECT  
-          'SAG Awards' as award_name,
-          SUBSTR(saga.year, 0, 4) as award_year,
+          'saga' as award_name,
+          CAST(SUBSTR(saga.year, 0, 4) AS INT64) as award_year,
           saga.category as award_category,
           saga.won as award_winner,  
           saga.show as film,
           saga.full_name as person_name,  
           m.tconst as tconst, 
           p.nconst as nconst
-        FROM `edgart-experiments.awards.saga` saga
-        JOIN `edgart-experiments.analytics.person` p ON LOWER(p.primary_name)=LOWER(saga.full_name)
-        JOIN `edgart-experiments.analytics.movie` m ON LOWER(saga.show)=LOWER(m.primary_title)
-        JOIN `edgart-experiments.analytics.movie_person` mp ON mp.nconst=p.nconst AND m.tconst=mp.tconst
+        FROM `awards.saga` saga
+        JOIN `analytics.person` p ON LOWER(p.primary_name)=LOWER(saga.full_name)
+        JOIN `analytics.movie` m ON LOWER(saga.show)=LOWER(m.primary_title)
+        JOIN `analytics.movie_person` mp ON mp.nconst=p.nconst AND m.tconst=mp.tconst
         WHERE 
           LOWER(saga.category) NOT LIKE '%television%' AND LOWER(saga.category) NOT LIKE '%series%' -- remove TV series
           AND saga.year IS NOT NULL
+    """)
+
+    validate_non_empty_movie = "SELECT COUNT(1) FROM `analytics.movie`"
+    validate_non_empty_person = "SELECT COUNT(1) FROM `analytics.person`"
+    validate_non_empty_movie_person = "SELECT COUNT(1) FROM `analytics.movie_person`"
+    validate_non_empty_genre = "SELECT COUNT(1) FROM `analytics.genre`"
+    validate_non_empty_tag = "SELECT COUNT(1) FROM `analytics.tag`"
+    validate_non_empty_rating = "SELECT COUNT(1) FROM `analytics.rating`"
+
+    validate_no_dups_movies = ("""
+        SELECT COUNT(1) as dups FROM (
+          SELECT COUNT(1) as cnt, tconst FROM `analytics.movie` GROUP BY tconst HAVING cnt > 1
+        )
+    """)
+    validate_no_dups_person = ("""
+        SELECT COUNT(1) as dups FROM (
+          SELECT COUNT(1) as cnt, nconst FROM `analytics.person` GROUP BY nconst HAVING cnt > 1
+        )
     """)

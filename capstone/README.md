@@ -200,7 +200,7 @@ The complete data dictionary is defined further down this section
 
 ## Step 4: Run ETL to Model the Data
 
-![DAG Airflow](img/dag_capstone.png)
+![DAG Airflow](img/dag.png)
 
 ### Steps
 Staging steps
