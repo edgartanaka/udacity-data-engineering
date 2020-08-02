@@ -78,17 +78,19 @@ here that most users would prefer not having to deal with nested fields in Bigqu
 
 The main tables in this model are `movie`, `person` and the relationship 
 `movie_person`. The other tables are enrichments on top of those (specially movie). Even though the relationship
-between `movie` and `genre`, `tag`, `production_company`, rating are 1-1, I have decided to keep them separate
+between `movie` and `genre`, `tag`, `production_company`, rating are 1-to-many, I have decided to keep them separate
 so not to bloat the `movie` table with too many fields. Also, I have decided as a general rule not to use 
 nested fields in any of the tables so that queries are simple and so that data analysts wouldn't have
 to figure out how to query nested fields.
 
+# TODO: review
 Here are some principles that guided the data model:
 - consistency for fields: always snake case
 - No internal IDs are created. IMDB `tconst` (for movies) and `const` (for people) are the only IDs used.
 - IMDB database is the source of truth. If any consolidation was needed, IMDB always had higher priority.
 - If data from other datasets for enrichment lacked tconst, it was discarded.
-- No nested fields 
+- Flat tables. No nested fields. Querying nested fields can be a barrier for some data analysts so I have
+decided to normalize these cases.
 
 Below, you can find a diagram of the data model where only the IDs have been specified as fields.
 The complete data dictionary is defined further down this section 
@@ -118,9 +120,9 @@ The complete data dictionary is defined further down this section
 | Field name        | Type    | Description                                                                                                                                                                                                                                                        |
 |-------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | tconst            | STRING  | Movie ID                                                                                                                                                                                                                                                           |
-| movie_type        | STRING  | Type/Format of movie. Values can be "movie", "tvMovie" and "short". Definition of each can be found here https://help.imdb.com/article/imdb/discover-watch/how-do-you-decide-if-a-title-is-a-film-a-tv-movie-or-a-miniseries/GKUQEMEFSM54T2KT?ref_=helpart_nav_21# |
-| primary_title     | STRING  | the more popular title / the title used by the filmmakers on promotional materials at the point of release                                                                                                                                                         |
-| original_title    | STRING  | original title, in the original language                                                                                                                                                                                                                           |
+| movie_type        | STRING  | Type/Format of movie. Values can be "movie", "tvMovie" and "short". Definition of each can be found [here](https://help.imdb.com/article/imdb/discover-watch/how-do-you-decide-if-a-title-is-a-film-a-tv-movie-or-a-miniseries/GKUQEMEFSM54T2KT?ref_=helpart_nav_21#) |
+| primary_title     | STRING  | The more popular title / the title used by the filmmakers on promotional materials at the point of release                                                                                                                                                         |
+| original_title    | STRING  | Original title, in the original language                                                                                                                                                                                                                           |
 | start_year        | STRING  | Format YYYY. Represents the release year of a title. In the case of TV Series, it is the series start year                                                                                                                                                         |
 | end_year          | STRING  | REMOVE                                                                                                                                                                                                                                                             |
 | runtime_minutes   | INTEGER | Primary runtime of the title, in minutes                                                                                                                                                                                                                           |
@@ -129,7 +131,7 @@ The complete data dictionary is defined further down this section
 | original_language | STRING  | Language in lower case. Some examples: "en", "it", "fr".                                                                                                                                                                                                           |
 | overview          | STRING  | Synopsis of the movie.                                                                                                                                                                                                                                             |
 | popularity        | NUMERIC | Popularity of the movie. Value can range from 0 to 176.614 (not restricted). This value comes from TMDB.                                                                                                                                                           |
-| poster_path       | STRING  | Path to poster image in TMDB                                                                                                                                                                                                                                       |
+| poster_path       | STRING  | Path to poster image in TMDB.                                                                                                                                                                                                                                       |
 | release_date      | STRING  | Release date of the movie.                                                                                                                                                                                                                                         |
 | revenue           | INTEGER | Revenue of the movie. This is null for some movies.                                                                                                                                                                                                                |
 | status            | STRING  | Production status. Values are: "Released", "Post Production", "In Production", "Rumored", "Planned", "Cancelled" and null.                                                                                                                                         |
@@ -137,15 +139,35 @@ The complete data dictionary is defined further down this section
 
 
 #### Movie Person (table `movie_person`)
-
+| Field name          | Type    | Description                                                                                                                                                       |
+|---------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| tconst              | STRING  | Movie ID                                                                                                                                                          |
+| nconst              | STRING  | Person ID                                                                                                                                                         |
+| movie_primary_title | STRING  | The more popular title / the title used by the filmmakers on promotional materials at the point of release                                                        |
+| person_primary_name | STRING  | Name by which the person is most often credited                                                                                                                   |
+| ordering            | INTEGER | A number to uniquely identify rows for a given titleId                                                                                                            |
+| category            | STRING  | The category of job that person was in. Examples: "actor", "actress", "self", "producer", "writer", "editor", "director", "composer". This field comes from IMDB. |
+| job                 | STRING  | The specific job title if applicable, else null.                                                                                                                  |
+| characters          | STRING  | The name of the character played if applicable, else null.                                                                                                        |
 
 
 #### Person
-
+| Field name         | Type    | Description                                                                                                      |
+|--------------------|---------|------------------------------------------------------------------------------------------------------------------|
+| nconst             | STRING  | Person ID. This person could be actor, actress, director, writer or other professional involved in movie making. |
+| primary_name       | STRING  | Name by which the person is most often credited                                                                  |
+| birth_year         | INTEGER | Year of birth in YYYY format                                                                                     |
+| death_year         | INTEGER | Year of death in YYYY format. Null if not applicable.                                                            |
+| primary_profession | STRING  | The top-3 professions of the person. Comma separate values.                                                      |
+| known_for_titles   | STRING  | Titles the person is known for. Comma separated `tconst` IDs.                                                    |
 
 
 #### Production Company (table `production_company`)
-
+| Field name                 | Type   | Description                                                                                                 |
+|----------------------------|--------|-------------------------------------------------------------------------------------------------------------|
+| tconst                     | STRING | Movie ID                                                                                                    |
+| production_company_name    | STRING | Name of production company. Examples: "Warner Bros. Pictures", "Columbia Pictures" and "Universal Pictures" |
+| production_company_country | STRING | Country where production company is based. Examples: "US", "CA", "JP".                                      |
 
 
 #### Rating
@@ -167,77 +189,6 @@ The complete data dictionary is defined further down this section
 | tag        | STRING | User created tag. This is a wildly broad field and can indicate themes, important actors/actresses, characters, awards (not exhaustive list).                                        |
 | relevance  | FLOAT  | Relevance values are on a continuous 0-1 scale. A value of 1 indicates that a tag is strongly relevant to a movie and a value of 0 indicates that a tag has no relevance to a movie. |
 
-
-- Movie
-    - imdb_title_id
-    - original_title
-    - overview
-    - release_date
-    - start_year
-    - end_year
-    - imdb_rating
-    - tmdb_rating
-    - movielens_rating
-    - original_language
-    - budget
-    - revenue
-    - status
-```
-select 
-	tconst,
-    titleType as movie_type,
-    primaryTitle as primary_title,
-    originalTitle as original_title,
-    startYear as start_year,
-    endYear as end_year,
-    runtimeMinutes as runtime_minutes    
-from imdb.title_basics
-where  
-isadult=0
-and titleType in ('movie', 'short', 'tvmovie')
-limit 100
-```
-    
-- Genre (movielens, imdb, tmdb)
-    - imdb_tconst
-    - genre    
-```
-
-```
-
-- Tag (movielens)
-    - imdb_tconst
-    - tag
-    - relevance
-```
-
-```
-
-- MovieAward
-    - imdb_tconst
-    - event
-    - year
-    - award_title
-
-- PersonAward
-    - imdb_nconst
-    - event
-    - year
-    - award_title
-
-- Person
-    - imdb_const (string) - alphanumeric unique identifier of the name/person
-    - primaryName (string)– name by which the person is most often credited
-    - birthYear – in YYYY format
-    - deathYear – in YYYY format if applicable, else '\N'
-    - primaryProfession (array of strings)– the top-3 professions of the person
-    - knownForTitles (array of tconsts) – titles the person is known for
-
-- Country
-    - code
-
-- Language
-    - code
 
 
 ## Step 4: Run ETL to Model the Data
@@ -304,3 +255,9 @@ real	4m7.194s
 user	0m1.424s
 sys	0m0.278s
 ```
+
+## Next steps
+Here are some next steps to continue improving this dataset:
+- Enrich Movie Analytics even more with the BAFTA dataset. Currently it has some severe inconsistencies which are 
+a bit hard to deal with programmatically.
+- 
