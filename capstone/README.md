@@ -13,7 +13,9 @@ Point 1: This project was built on top of Google Cloud Platform instead of AWS.
 Redshift had some serious performance issues while I was loading JSON files. Bigquery serves the same purpose
  as Redshift would.
 
-Point 2: the code to be reviewed is in `src/airflow`. You can ignore `src/gcp` and `src/aws`.
+Point 2: the code to be reviewed is in `src/airflow`. I have start working on `src/aws` and then later
+I moved to `src/gcp` to build each step of my data pipeline in GCP. Once I had those steps built, 
+I ported the logic in the python scripts into the Airflow framework.
 
 ## Technologies used
 - Python 3.7.2
