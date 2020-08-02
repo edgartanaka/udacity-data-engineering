@@ -81,25 +81,24 @@ JSON file. More than 500K files are within this generated dataset.
 
 ## Step 3: Define the Data Model
 The data model is somewhat normalized. Too much normalization would require too many joins in our queries.
-On the other hand, no normalization at all, would create tables with lots of fields and in some cases nested 
-fields. Some data analysts I have talked to may prefer that "all-in-one-table" approach but I have assumed
-here that most users would prefer not having to deal with nested fields in Bigquery.
+On the other hand, no normalization at all, would create huge tables with lots of fields including nested 
+fields. I have assumed here that most users would prefer not having to deal with nested fields in Bigquery
+so the majority of the 1-to-many relationships have been flattened into two separate tables. A few
+cases of array fields (comma separated) are included in the Movie Analytics dataset but I have assumed
+those would not be very popular fields among the data analysts. Instead of excluding them, I have decided to
+keep them and later this dataset could be evolved to normalize some of those cases if they turn out to be
+highly demanded.
 
-The main tables in this model are `movie`, `person` and the relationship 
-`movie_person`. The other tables are enrichments on top of those (specially movie). Even though the relationship
-between `movie` and `genre`, `tag`, `production_company`, rating are 1-to-many, I have decided to keep them separate
-so not to bloat the `movie` table with too many fields. Also, I have decided as a general rule not to use 
-nested fields in any of the tables so that queries are simple and so that data analysts wouldn't have
-to figure out how to query nested fields.
-
-# TODO: review
-Here are some principles that guided the data model:
-- consistency for fields: always snake case
-- No internal IDs are created. IMDB `tconst` (for movies) and `const` (for people) are the only IDs used.
-- IMDB database is the source of truth. If any consolidation was needed, IMDB always had higher priority.
-- If data from other datasets for enrichment lacked tconst, it was discarded.
-- Flat tables. No nested fields. Querying nested fields can be a barrier for some data analysts so I have
-decided to normalize these cases.
+### Guiding principles
+This data model was guided by the following principles:
+- We always use snake case for field names and table names.
+- We do not create internal IDs. IMDB is already stabilished as source of truth for movies so
+ there is no need to create internal IDs that would later complicate joining
+ Movie Analytics with other datasets out there. IMDB `tconst` (for movies) and `const` (for people) are the only IDs used.
+- We always give higher priority to IMDB data when consolidating data.
+- We only join data that can be joined with `tconst` and `nconst`.
+- We prefer flat tables without nested fields. Querying nested fields can be a barrier for some data analysts.
+- We normalize when there is a 1-to-many relationship (few exceptions)
 
 Below, you can find a diagram of the data model where only the IDs have been specified as fields.
 The complete data dictionary is defined further down this section 
@@ -199,7 +198,6 @@ The complete data dictionary is defined further down this section
 | relevance  | FLOAT  | Relevance values are on a continuous 0-1 scale. A value of 1 indicates that a tag is strongly relevant to a movie and a value of 0 indicates that a tag has no relevance to a movie. |
 
 
-
 ## Step 4: Run ETL to Model the Data
 
 ![DAG Airflow](img/dag_capstone.png)
@@ -285,8 +283,12 @@ The DAG would have to modified to export data from Bigquery into PostgreSQL. We'
 that the web application could not have the performance penalyzed while it was being updated. 
 
 ## Lessons learned
-- redshift has bad support for flattening
-- redshift has bad support for json (very limited)
+### Redshift has bad support for flattening array values
+If you have array values as comma separated or JSON arrays, it's to flatten them
+with the SQL offered by Redshift. You need to create a temp table first, where you set 
+a max limit number of items in the array to be flattened.
+ 
+This article explains the gig: https://blog.getdbt.com/how-to-unnest-arrays-in-redshift/
 
 ### Redshift is slow to load JSON files
 Redshift couldn't load my 526631 records even after 4 hours running. Researching online, 
@@ -306,6 +308,14 @@ real	4m7.194s
 user	0m1.424s
 sys	0m0.278s
 ```
+
+### Airflow: use LocalExecutor + Relational DB to develop locally
+I had a number of weird issues while using sqlite in Airflow. Problems with performance to run
+the tasks and DAG, database locked, and the webserver completely crashing. Also, you can't
+run tasks in parallel with sqlite. For that you need a relational database.
+
+Once I moved to MySQL as the database, things went a lot smoother/faster. I could run tasks in parallel
+and I stopped having those weird crashing issues. Developing and testing got a lot easier.
 
 ## Next steps
 Here are some next steps to continue improving this dataset:
