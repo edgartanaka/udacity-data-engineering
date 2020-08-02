@@ -15,6 +15,15 @@ Redshift had some serious performance issues while I was loading JSON files. Big
 
 Point 2: the code to be reviewed is in `src/airflow`. You can ignore `src/gcp` and `src/aws`.
 
+## Technologies used
+- Python 3.7.2
+- Apache Airflow 1.10.10
+- Google Cloud Storage
+- Bigquery
+- For data analysis: 
+    - Jupyter Notebook
+    - Matplotlib
+
 ## Step 1: Scope the Project and Gather Data
 IMDB seems to be already established as a source of truth database for movies metadata. 
 Even so, this catalog has been enriched with data such as tagging, genre, rating, awards, revenue and production companies. 
@@ -226,12 +235,54 @@ Filtering/Cleaning
 **TODO**
 
 ## Thinking about other scenarios
-**TODO**
+### Scenario 1: If the data was increased by 100x.
+We can break it down this question into 2 parts: reading data and writing data.
 
-Include a description of how you would approach the problem differently under the following scenarios:
-If the data was increased by 100x.
-If the pipelines were run on a daily basis by 7am.
-If the database needed to be accessed by 100+ people. 
+Let's start with reading data. How would an 100x increase affect the users of Movie Analytics after
+all the data has been processed? The largest table in Movie Analytics contains 15M rows so if
+this number increases linearly (worst case), we're talking about 1.5B rows. Bigquery can handle billions of records. 
+This [article](https://cloud.google.com/blog/products/gcp/anatomy-of-a-bigquery-query) presents
+results of Bigquery returning query results in 30 seconds on a table with 100 billion rows. Bigquery 
+is still a sound solution for data analysts to do adhoc analysis on the final Movie Analytics dataset.
+
+Now let's talk about writing data. How would that same increase affect the data pipeline execution and performance?
+The largest CSV I staged had 40M rows so if data increased by 100x we'd be talking about 4 billion records.
+As per the article referenced above, that's still within Bigquery's capabilities. Also, the entire pipeline
+is currently taking around 5-6 minutes to run and Bigquery automatically scales the resources needed
+to process the queries you send it. Loading the data to Storage took less than 30 minutes. Since all the data processing
+is done on Bigquery, I wouldn't expect any changes in the pipeline with this increase.
+
+If we did hit a performance issues, we should consider moving to Google Cloud Dataflow where the resources
+are managed.
+
+Cost is another aspect that could be considered in this analysis as well.
+
+### Scenario 2: If the pipelines were run on a daily basis by 7am.
+This project was built on top of Apache Airflow which allows scheduling. 
+ I would set up a daily schedule for the job to run at 7am and set alerts to be triggered in case
+ the job hadn't finished within 2 hours. 
+A modification in the DAG to pull data directly from IMDB, TMDB, and MovieLens Kaggle would be needed.
+For this project delivery, I have assumed that the data would be always available in Google Cloud Storage.
+
+### Scenario 3: If the database needed to be accessed by 100+ people. 
+I need more information to answer this question. 
+- how is this access? how many requests per second would that be on the database?
+- would I need to provide an API for these users?
+- how sensitive is the latency for each request?
+- what are the security constraints?
+
+Let's assume we are talking about 100+ data analysts who do not have any time sensitive 
+queries to run. Bigquery should still be the option to keep. It provides SQL interface which
+is easy for data analysts and business analysts to use. It can handle hundreds of users easily. 
+Bigquery also provides easy interfaces with Jupyter notebooks, Google DataStudio (for data visualization)
+and data export features.
+
+If this data had to be accessed by end users with a time sensitive use case (for example a web application
+where we need to respond within milliseconds), then we should consider migrating this data to a relational
+database. 100+ users can easily be handled by MySQL or PostgreSQL. We would need to do some analysis on the
+queries that this web application would run on the database and tune the right indexes for optimal performance.
+The DAG would have to modified to export data from Bigquery into PostgreSQL. We'd also have to consider the fact
+that the web application could not have the performance penalyzed while it was being updated. 
 
 ## Lessons learned
 - redshift has bad support for flattening
