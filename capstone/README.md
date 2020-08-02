@@ -8,6 +8,13 @@ This is the capstone project of the Udacity Data Engineering Nanodegree.
 I have built a data pipeline that collects movie data from disparate datasets and creates a Movie Analytics
 dataset for adhoc insights.
 
+## Important message for Udacity reviewers 
+Point 1: This project was built on top of Google Cloud Platform instead of AWS. 
+Redshift had some serious performance issues while I was loading JSON files. Bigquery serves the same purpose
+ as Redshift would.
+
+Point 2: the code to be reviewed is in `src/airflow`. You can ignore `src/gcp` and `src/aws`.
+
 ## Step 1: Scope the Project and Gather Data
 IMDB seems to be already established as a source of truth database for movies metadata. 
 Even so, this catalog has been enriched with data such as tagging, genre, rating, awards, revenue and production companies. 
@@ -63,69 +70,103 @@ JSON file. More than 500K files are within this generated dataset.
 | BAFTA              | bafta            | 4,177      | CSV   |
 | SAGA               | saga             | 5,760      | CSV   |
 
-## TMDB
-```
-{
-	"adult": false,
-	"backdrop_path": "/ck75O6pTZPNrV51CHwd3IxOfzkI.jpg",
-	"belongs_to_collection": null,
-	"budget": 0,
-	"genres": [{
-		"id": 80,
-		"name": "Crime"
-	}, {
-		"id": 18,
-		"name": "Drama"
-	}],
-	"homepage": "http://www.derfreiewille.com/",
-	"id": 9999,
-	"imdb_id": "tt0499101",
-	"original_language": "de",
-	"original_title": "Der freie Wille",
-	"overview": "After nine years in psychiatric detention Theo, who has brutally assaulted and raped three women, is released. Living in a supervised community, he connects well with his social worker Sascha, finds a job at a print shop and even a girlfriend, Nettie, his principal's brittle and estranged daughter. But even though superficially everything seems to work out Theo's seething rage remains ready to erupt.",
-	"popularity": 4.793,
-	"poster_path": "/tHaHcLZSPiIYHyTfUWQtEUAKdCs.jpg",
-	"production_companies": [{
-		"id": 1084,
-		"logo_path": null,
-		"name": "Colonia Media",
-		"origin_country": ""
-	}],
-	"production_countries": [{
-		"iso_3166_1": "DE",
-		"name": "Germany"
-	}],
-	"release_date": "2006-08-23",
-	"revenue": 0,
-	"runtime": 163,
-	"spoken_languages": [{
-		"iso_639_1": "de",
-		"name": "Deutsch"
-	}, {
-		"iso_639_1": "fr",
-		"name": "Français"
-	}],
-	"status": "Released",
-	"tagline": "",
-	"title": "The Free Will",
-	"video": false,
-	"vote_average": 6.7,
-	"vote_count": 24
-}
-```
-
 ## Step 3: Define the Data Model
-**TODO** Add data dictionary of final dataset
+The data model is somewhat normalized. Too much normalization would require too many joins in our queries.
+On the other hand, no normalization at all, would create tables with lots of fields and in some cases nested 
+fields. Some data analysts I have talked to may prefer that "all-in-one-table" approach but I have assumed
+here that most users would prefer not having to deal with nested fields in Bigquery.
 
-### Overall
-- snake case for fields
-- no creation of internal ID
-- IMDB IDs are used as IDs (as it seems to be standard in the industry) 
+The main tables in this model are `movie`, `person` and the relationship 
+`movie_person`. The other tables are enrichments on top of those (specially movie). Even though the relationship
+between `movie` and `genre`, `tag`, `production_company`, rating are 1-1, I have decided to keep them separate
+so not to bloat the `movie` table with too many fields. Also, I have decided as a general rule not to use 
+nested fields in any of the tables so that queries are simple and so that data analysts wouldn't have
+to figure out how to query nested fields.
+
+Here are some principles that guided the data model:
+- consistency for fields: always snake case
+- No internal IDs are created. IMDB `tconst` (for movies) and `const` (for people) are the only IDs used.
 - IMDB database is the source of truth. If any consolidation was needed, IMDB always had higher priority.
 - If data from other datasets for enrichment lacked tconst, it was discarded.
-- flat tables 
+- No nested fields 
+
+Below, you can find a diagram of the data model where only the IDs have been specified as fields.
+The complete data dictionary is defined further down this section 
 
 ![data model](img/model.png)
+
+### Data Dictionary
+#### Award
+| Field name     | Type    | Description                                                                                                             |
+|----------------|---------|--------------------------------------------------------------------------------------------------------------|
+| award_name     | STRING  | Name of the event for award. Valid values are `oscars`, `saga` and `golden_globe`                            |
+| award_year     | INTEGER | Year when award was granted                                                                                  |
+| award_category | STRING  | Category of the award such as "Best actor" or "Best director". This category name depends on the award_name. |
+| award_winner   | BOOLEAN | Name of the movie or name of the person who won the award                                                    |
+| film           | STRING  | Name of the movie                                                                                            |
+| person_name    | STRING  | Name of the person or people who received the award                                                          |
+| tconst         | STRING  | Movie ID                                                                                                     |
+| nconst         | STRING  | Person ID                                                                                                    |
+
+#### Genre
+| Field  | Type   | Description                                                                                                                            |
+|--------|--------|----------------------------------------------------------------------------------------------------------------------------------------|
+| tconst | STRING | Movie ID                                                                                                                               |
+| genre  | STRING | Genre name such as "drama", "action", "thriller". This is a combination of genres from IMDB and MovieLens. All genres are lower cased. |
+
+#### Movie
+| Field name        | Type    | Description                                                                                                                                                                                                                                                        |
+|-------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| tconst            | STRING  | Movie ID                                                                                                                                                                                                                                                           |
+| movie_type        | STRING  | Type/Format of movie. Values can be "movie", "tvMovie" and "short". Definition of each can be found here https://help.imdb.com/article/imdb/discover-watch/how-do-you-decide-if-a-title-is-a-film-a-tv-movie-or-a-miniseries/GKUQEMEFSM54T2KT?ref_=helpart_nav_21# |
+| primary_title     | STRING  | the more popular title / the title used by the filmmakers on promotional materials at the point of release                                                                                                                                                         |
+| original_title    | STRING  | original title, in the original language                                                                                                                                                                                                                           |
+| start_year        | STRING  | Format YYYY. Represents the release year of a title. In the case of TV Series, it is the series start year                                                                                                                                                         |
+| end_year          | STRING  | REMOVE                                                                                                                                                                                                                                                             |
+| runtime_minutes   | INTEGER | Primary runtime of the title, in minutes                                                                                                                                                                                                                           |
+| budget            | INTEGER | Budget of the movie. This is null for some movies.                                                                                                                                                                                                                 |
+| homepage          | STRING  | URL to movie's homepage.                                                                                                                                                                                                                                           |
+| original_language | STRING  | Language in lower case. Some examples: "en", "it", "fr".                                                                                                                                                                                                           |
+| overview          | STRING  | Synopsis of the movie.                                                                                                                                                                                                                                             |
+| popularity        | NUMERIC | Popularity of the movie. Value can range from 0 to 176.614 (not restricted). This value comes from TMDB.                                                                                                                                                           |
+| poster_path       | STRING  | Path to poster image in TMDB                                                                                                                                                                                                                                       |
+| release_date      | STRING  | Release date of the movie.                                                                                                                                                                                                                                         |
+| revenue           | INTEGER | Revenue of the movie. This is null for some movies.                                                                                                                                                                                                                |
+| status            | STRING  | Production status. Values are: "Released", "Post Production", "In Production", "Rumored", "Planned", "Cancelled" and null.                                                                                                                                         |
+| tagline           | STRING  | Tagline of the movie announcement. Some examples: "For Vengeance, For Justice, For Love.", "Boy meets girl. Boy meets girl's cousin." "                                                                                                                            |
+
+
+#### Movie Person (table `movie_person`)
+
+
+
+#### Person
+
+
+
+#### Production Company (table `production_company`)
+
+
+
+#### Rating
+| Field name     | Type    | Description                              |
+|----------------|---------|------------------------------------------|
+| tconst         | STRING  | Movie ID                                 |
+| imdb_rating    | FLOAT   | Rating in IMDB. Ranges from 0 to 10.0    |
+| imdb_num_votes | INTEGER | Number of votes in IMDB                  |
+| tmdb_rating    | NUMERIC | Rating in TMDB. Ranges from 0 to 10.0    |
+| tmdb_num_votes | INTEGER | Number of votes in TMDB                  |
+| ml_rating      | NUMERIC | Rating in MovieLens. Ranges from 0 to 5. |
+| ml_num_votes   | INTEGER | Number of votes in MovieLens             |
+
+
+#### Tag
+| Field name | Type   | Description                                                                                                                                                                          |
+|------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| tconst     | STRING | Movie ID                                                                                                                                                                             |
+| tag        | STRING | User created tag. This is a wildly broad field and can indicate themes, important actors/actresses, characters, awards (not exhaustive list).                                        |
+| relevance  | FLOAT  | Relevance values are on a continuous 0-1 scale. A value of 1 indicates that a tag is strongly relevant to a movie and a value of 0 indicates that a tag has no relevance to a movie. |
+
 
 - Movie
     - imdb_title_id
@@ -230,6 +271,9 @@ Filtering/Cleaning
 Filtering/Cleaning
 - removed genre != '(no genres listed)'
 
+## The technologies chosen
+**TODO**
+
 ## Thinking about other scenarios
 **TODO**
 
@@ -242,7 +286,12 @@ If the database needed to be accessed by 100+ people.
 - redshift has bad support for flattening
 - redshift has bad support for json (very limited)
 
-Time to load TMDB json data into BQ:
+### Redshift is slow to load JSON files
+Redshift couldn't load my 526631 records even after 4 hours running. Researching online, 
+this seems to be related with the fact that there were many JSON files and there is some overhead
+per file. I had the same performance issue in one of my Udacity labs.
+
+On the other hand, BQ loaded all JSON files in about 4 minutes:
 ```
 $time python stage_json.py 
 /Users/edgart/.pyenv/versions/3.6.10/lib/python3.6/site-packages/pandas/compat/__init__.py:117: UserWarning: Could not import the lzma module. Your installed Python is incomplete. Attempting to use lzma compression will result in a RuntimeError.
