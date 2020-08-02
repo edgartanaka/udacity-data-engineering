@@ -1,5 +1,5 @@
 
-# Movie Analytics Pipeline
+# Movie Analytics Project
 Author: Edgar Tanaka
 
 ## TL;DR
