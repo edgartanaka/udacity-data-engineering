@@ -1,5 +1,4 @@
-# udacity-data-engineering
-
+# Udacity Data Engineer Nanodegree
 This repo contains all the projects completed during the Udacity Data Engineering Nanodegree. 
 
 Main themes:
