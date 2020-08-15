@@ -14,3 +14,5 @@ Technologies used:
 - AWS S3
 - Bigquery
 - Google Cloud Storage
+
+Capstone Project: [Building a Movie Analytics Database](https://github.com/edgartanaka/udacity-data-engineering/tree/master/capstone)
